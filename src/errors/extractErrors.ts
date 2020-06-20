@@ -5,30 +5,43 @@
  * LICENSE file in the root directory of this source tree.
  */
 import fs from 'fs-extra';
-import * as babylon from 'babylon';
-import traverse from 'babel-traverse';
+import * as babelParser from '@babel/parser';
+import traverse from '@babel/traverse';
 import { invertObject } from './invertObject';
 import { evalToString } from './evalToString';
 import { paths } from '../constants';
 import { safeVariableName } from '../utils';
 import pascalCase from 'pascal-case';
 
-const babylonOptions = {
+const babelParserOptions: babelParser.ParserOptions = {
   sourceType: 'module',
   // As a parser, babylon has its own options and we can't directly
   // import/require a babel preset. It should be kept **the same** as
   // the `babel-plugin-syntax-*` ones specified in
   // https://github.com/facebook/fbjs/blob/master/packages/babel-preset-fbjs/configure.js
   plugins: [
+    'asyncGenerators',
+    'classPrivateMethods',
+    'classPrivateProperties',
     'classProperties',
+    'dynamicImport',
+    'exportDefaultFrom',
+    'exportNamespaceFrom',
     'flow',
     'jsx',
-    'trailingFunctionCommas',
+    'nullishCoalescingOperator',
     'objectRestSpread',
+    'optionalCatchBinding',
+    'optionalChaining',
   ],
 };
 
-export async function extractErrors(opts: any) {
+interface ExtractErrorsOptions {
+  errorMapFilePath: string;
+  name: string;
+}
+
+export async function extractErrors(opts: ExtractErrorsOptions) {
   if (!opts || !('errorMapFilePath' in opts)) {
     throw new Error(
       'Missing options. Ensure you pass an object with `errorMapFilePath`.'
@@ -64,11 +77,11 @@ export async function extractErrors(opts: any) {
   existingErrorMap = invertObject(existingErrorMap);
 
   function transform(source: string) {
-    const ast = babylon.parse(source, babylonOptions);
+    const ast = babelParser.parse(source, babelParserOptions);
 
     traverse(ast, {
       CallExpression: {
-        exit(astPath: any) {
+        exit(astPath) {
           if (astPath.get('callee').isIdentifier({ name: 'invariant' })) {
             const node = astPath.node;
 
@@ -111,7 +124,7 @@ function ErrorDev(message) {
   return error;
 }
 
-export default ErrorDev;      
+export default ErrorDev;
       `,
       'utf-8'
     );
